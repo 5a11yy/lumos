@@ -13,12 +13,14 @@ from states import Form, Order
 import random
 import asyncio
 import aiohttp
+import os
 from db import init_db, save_birthday, get_bd, get_tomorrow
-
+from dotenv import load_dotenv
 load_dotenv()
+from aiohttp import web
 
-BOT_TOKEN = '8735927867:AAEvCqM2f2_peWgp1LT59aTfwA9suLTHxME'
-WEATHER_API_KEY = '7e68f799c1f3a6afc00855e83d1173ca'
+BOT_TOKEN =os.getenv('BOT_TOKEN')
+WEATHER_API_KEY = os.getenv('WEATHER_API_KEY')
 
 WIDTH = 1024
 HEIGHT = 1024
@@ -39,6 +41,9 @@ async def photo_command(message: Message):
 @dp.message(Command("weather"))
 async def weather_command(message: Message):
     await get_weather(message)
+
+async def health(request):
+    return web.Response(text="OK")
 
 async def get_weather(message: Message):
     url = f"https://api.openweathermap.org/data/2.5/weather?q=Бишкек&appid={WEATHER_API_KEY}&units=metric"
@@ -177,11 +182,26 @@ async def remind_birthdays():
             print("Ошибка в напоминании:", e)
         await asyncio.sleep(864000)  
 
+
+@dp.message(F.text)
+async def handle_text(message: Message):
+    await message.answer("Я не понимаю эту команду. Пожалуйста, используйте /start, /weather, /draw, /order, /form, /add или /birthdays.")
+
+async def start_web():
+    app = web.Application()
+    app.router.add_get("/", health)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.getenv("PORT", 10000))
+    await web.TCPSite(runner, "0.0.0.0", port).start()
+
+
 async def main():
     await init_db()
-    task =asyncio.create_task(remind_birthdays())
+    task = asyncio.create_task(remind_birthdays())
+    await start_web()
     await dp.start_polling(bot)
 
-if __name__ == '__main__':
-    asyncio.run(main())
 
+if __name__ == "__main__":
+    asyncio.run(main())
